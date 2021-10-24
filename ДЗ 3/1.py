@@ -2,6 +2,8 @@ import requests, json
 from bs4 import BeautifulSoup as bs
 from pprint import pprint
 import re
+from pymongo import MongoClient
+from pymongo.errors import DuplicateKeyError as dke
 
 def salary_determine(str):
     work_salary_dict = {'salary_start': None, 'salary_end': None, 'valute': None}
@@ -17,6 +19,16 @@ def salary_determine(str):
             work_salary_dict['valute'] = m.group('valute1') or m.group('valute2') or m.group('valute3')
     
     return work_salary_dict
+
+def db_add_one_document(doc, collection):
+    try:
+        collection.insert_one(doc)
+        print(f'{doc["_id"]} - Document successfuly added')
+    except dke:
+        print(f'{doc["_id"]} - Document already exist')
+
+def db_full_clear(collection):
+    collection.delete_many({})
 
 headers = {'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko)'}
 params = {
@@ -60,6 +72,7 @@ while True:
 
                 work_link = work_solution_object['href']
                 
+                current_work_dict['_id']= work_link.split("?")[0].split("/")[-1]
                 current_work_dict['work_solution_title']= work_solution_title
                 current_work_dict['work_emploee']= work_emploee
                 current_work_dict['work_link']= work_link.split("?")[0]
@@ -67,9 +80,16 @@ while True:
                 current_work_dict['work_source']= work_source
                 work_data.append(current_work_dict)
         params['page'] += 1
-        
     else:
         print(response.status_code)
         break
 
-pprint(work_data)
+# pprint(work_data)
+
+client = MongoClient('127.0.0.1', 27017)
+db = client['works']
+works_list = db.works   
+
+for i in work_data:
+    db_add_one_document(i, works_list)
+
